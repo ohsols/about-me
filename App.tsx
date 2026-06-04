@@ -53,7 +53,7 @@ const App: React.FC = () => {
     
     const fetchPresence = async () => {
       try {
-        const response = await fetch(`/api/discord/${DISCORD_USER_ID}`);
+        const response = await fetch(`https://api.lanyard.rest/v1/users/${DISCORD_USER_ID}`);
         const data = await response.json();
         if (data.success) {
           setPresence(data.data);
