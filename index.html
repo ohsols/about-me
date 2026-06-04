@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>ohsols | Digital Creator</title>
+  <meta name="description" content="Personal bio profile for ohsols. Developer, designer, and creator." />
+
+  <meta
+    name="keywords"
+    content="chillzone, czone, entertainment, movies, anime, manga, games"
+  />
+
+  <meta name="author" content="ohsols" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="CZone" />
+  <meta property="og:description" content="Your all-in-one entertainment hub." />
+  <meta property="og:url" content="https://chillz0ne.dev" />
+  <meta property="og:image" content="/logo.svg" />
+
+  <!-- GOOGLE ANALYTICS -->
+  <script
+    async
+    src="https://www.googletagmanager.com/gtag/js?id=G-TE4NT1V017"
+  ></script>
+
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag("js", new Date());
+    gtag("config", "G-TE4NT1V017");
+  </script>
+
+  <!-- SPA GITHUB PAGES FIX -->
+  <script type="text/javascript">
+    (function (l) {
+      if (l.search[1] === "p") {
+        var decoded = l.search
+          .slice(1)
+          .split("&")
+          .map(function (s) {
+            return s.replace(/~and~/g, "&");
+          })
+          .filter(function (s) {
+            return s.slice(0, 2) === "p=";
+          })[0]
+          .slice(2);
+
+        if (decoded !== l.pathname) {
+          window.history.replaceState(
+            null,
+            null,
+            l.pathname.slice(0, -1) +
+              decoded +
+              (l.search
+                .slice(1)
+                .split("&")
+                .filter(function (s) {
+                  return s.slice(0, 2) !== "p=";
+                })
+                .join("&")
+                ? "?" +
+                  l.search
+                    .slice(1)
+                    .split("&")
+                    .filter(function (s) {
+                      return s.slice(0, 2) !== "p=";
+                    })
+                    .join("&")
+                : "") +
+              l.hash
+          );
+        }
+      }
+    })(window.location);
+  </script>
+
+  <!-- STYLES -->
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      background-color: #ffffff;
+      color: #18181b;
+      margin: 0;
+      padding: 0;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #e4e4e7;
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #d4d4d8;
+    }
+  </style>
+
+  <!-- SCRIPT ERROR SUPPRESSION -->
+  <script>
+    window.addEventListener(
+      "error",
+      function (e) {
+        if (e.message && e.message.includes("Script error")) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      },
+      true
+    );
+  </script>
+</head>
+
+<body>
+
+  <!-- REACT ROOT -->
+  <div id="root"></div>
+
+<!-- REACT ENTRY -->
+  <script type="module" src="/index.tsx"></script>
+
+
+
+</body>
+</html>

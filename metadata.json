@@ -1,0 +1,6 @@
+{
+  "name": "Bio Profile",
+  "description": "Minimalist, premium about me profile with real-time Discord presence and Spotify integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,18 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+*.log
+usage_stats.log
+
+# Internal tools — not for public repo
+scripts/*
+!scripts/publish_keys.py
+docs/plans/
+docs/GITHUB_SETUP.md
