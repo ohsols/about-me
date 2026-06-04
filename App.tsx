@@ -6,6 +6,7 @@ import {
   Instagram
 } from 'lucide-react';
 
+
 const DISCORD_USER_ID = '1448507472552661126';
 
 const PROJECTS = [
