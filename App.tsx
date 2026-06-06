@@ -4,7 +4,13 @@ import {
   Globe, 
   ChevronRight,
   Instagram,
-  ChevronLeft
+  ChevronLeft,
+  Brain,
+  Cpu,
+  Layers,
+  Activity,
+  Sparkles,
+  Code
 } from 'lucide-react';
 
 const PROFILES = [
@@ -39,6 +45,34 @@ const PARTNERS = [
     owner: 'Veteraning',
     url: 'https://www.krypt-on.top/',
     avatar: 'https://cdn.discordapp.com/icons/1474754840029823169/a_dd5f454a3a8995d76c2dc159a725a635.gif?size=1024'
+  }
+];
+
+const SKILLS = [
+  {
+    name: 'React',
+    level: 'UI Library',
+    icon: <Cpu className="w-4 h-4 text-sky-500" />
+  },
+  {
+    name: 'Vibe Coding',
+    level: 'Smart Tooling',
+    icon: <Brain className="w-4 h-4 text-purple-500" />
+  },
+  {
+    name: 'TypeScript',
+    level: 'Language',
+    icon: <Code className="w-4 h-4 text-blue-500" />
+  },
+  {
+    name: 'Tailwind CSS',
+    level: 'Styling',
+    icon: <Layers className="w-4 h-4 text-teal-400" />
+  },
+  {
+    name: 'Framer Motion',
+    level: 'Animations',
+    icon: <Sparkles className="w-4 h-4 text-amber-500" />
   }
 ];
 
@@ -394,6 +428,27 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                 </span>
               )}
             </h1>
+
+            {/* Little Skills Icons under Username */}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              {SKILLS.map((skill) => (
+                <div key={skill.name} className="relative group/tooltip">
+                  <div 
+                    className="w-7 h-7 rounded-lg bg-zinc-100/50 hover:bg-zinc-100 border border-black/[0.03] flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:scale-110 transition-all cursor-help"
+                  >
+                    {skill.icon}
+                  </div>
+                  {/* Modern custom tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-zinc-900/95 backdrop-blur-sm text-white text-[10px] font-semibold tracking-normal rounded-lg opacity-0 pointer-events-none group-hover/tooltip:opacity-100 scale-90 group-hover/tooltip:scale-100 transition-all duration-200 z-50 shadow-md whitespace-nowrap">
+                    <div className="relative flex flex-col items-center">
+                      <span>{skill.name}</span>
+                      {/* Tooltip Chevron/Arrow indicator */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-zinc-900/95 rotate-45 mt-0.5" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
 
           {/* Currently Listening */}
@@ -559,7 +614,6 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
               </div>
             </div>
           </div>
-
 
         </div>
       </motion.main>
