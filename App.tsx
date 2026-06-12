@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Globe, 
@@ -10,7 +10,9 @@ import {
   Layers,
   Activity,
   Sparkles,
-  Code
+  Code,
+  AlignLeft,
+  Sliders
 } from 'lucide-react';
 
 const PROFILES = [
@@ -99,7 +101,21 @@ const BackgroundEffect = () => (
 
 const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: number; song: string; artist: string; }) => {
   const [now, setNow] = useState(Date.now());
-  const [lyrics, setLyrics] = useState<{ time: number, text: string }[] | null>(null);
+  const [lyrics, setLyrics] = useState<{ time: number; text: string }[] | null>(null);
+  const [loadingLyrics, setLoadingLyrics] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
+  const [showFullLyrics, setShowFullLyrics] = useState(false);
+  const [syncOffset, setSyncOffset] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lyrics_sync_offset');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const lyricElementsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     const update = () => setNow(Date.now());
@@ -108,53 +124,92 @@ const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: num
     return () => clearInterval(interval);
   }, []);
 
+  const handleOffsetChange = (newOffset: number) => {
+    setSyncOffset(newOffset);
+    try {
+      localStorage.setItem('lyrics_sync_offset', newOffset.toString());
+    } catch (e) {
+      console.warn('Could not save offset', e);
+    }
+  };
+
   useEffect(() => {
     if (!song || !artist) return;
     const fetchLyrics = async () => {
+      setLoadingLyrics(true);
       try {
         let syncedLyrics = null;
-        // Clean up song title for better match rates
-        const cleanSong = song.replace(/\(feat\.?.*?\)/i, '').replace(/\(.*?remaster.*?\)/i, '').trim();
+        let plainLyrics = null;
         
-        // 1. Try exact match
-        const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanSong)}&artist_name=${encodeURIComponent(artist)}`);
+        // Clean up song title & artist for better match rates
+        const cleanSong = song.replace(/\(feat\.?.*?\)/i, '').replace(/\(.*?remaster.*?\)/i, '').replace(/- \w+ Mix/i, '').trim();
+        const cleanArtist = artist.split(/,|\/|&|feat\.?/i)[0].trim();
+        
+        // 1. Try exact raw match
+        let res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(song)}&artist_name=${encodeURIComponent(artist)}`);
         if (res.ok) {
           const data = await res.json();
           if (data.syncedLyrics) syncedLyrics = data.syncedLyrics;
+          if (data.plainLyrics) plainLyrics = data.plainLyrics;
+        } else {
+          // Try clean exact match
+          res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanSong)}&artist_name=${encodeURIComponent(cleanArtist)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.syncedLyrics) syncedLyrics = data.syncedLyrics;
+            if (data.plainLyrics) plainLyrics = data.plainLyrics;
+          }
         }
 
         // 2. Try search fallback (useful for fuzzy matching)
-        if (!syncedLyrics) {
-          const searchRes = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(artist + ' ' + cleanSong)}`);
+        if (!syncedLyrics && !plainLyrics) {
+          const searchRes = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanArtist + ' ' + cleanSong)}`);
           if (searchRes.ok) {
             const searchData = await searchRes.json();
-            const match = searchData.find((track: any) => track.syncedLyrics);
-            if (match) syncedLyrics = match.syncedLyrics;
+            const match = searchData.find((track: any) => track.syncedLyrics || track.plainLyrics);
+            if (match) {
+              syncedLyrics = match.syncedLyrics;
+              plainLyrics = match.plainLyrics;
+            }
           }
         }
 
         if (syncedLyrics) {
           const lines = syncedLyrics.split('\n').map((line: string) => {
-            const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
+            const match = line.match(/\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\](.*)/);
             if (match) {
-              const m = parseInt(match[1]);
-              const s = parseInt(match[2]);
-              const msStr = match[3];
-              const ms = msStr.length === 2 ? parseInt(msStr) * 10 : parseInt(msStr);
+              const m = parseInt(match[1], 10);
+              const s = parseInt(match[2], 10);
+              const msStr = match[3] || '0';
+              const ms = msStr.length === 2 ? parseInt(msStr, 10) * 10 : parseInt(msStr, 10);
               const time = m * 60000 + s * 1000 + ms;
               return { time, text: match[4].trim() };
             }
             return null;
-          }).filter(Boolean) as {time: number, text: string}[];
+          }).filter(Boolean) as { time: number; text: string }[];
           
-          setLyrics([{time: 0, text: '♪'}, ...lines]);
+          setLyrics([{ time: 0, text: '♪' }, ...lines]);
+          setIsSynced(true);
+        } else if (plainLyrics) {
+          const lines = plainLyrics.split('\n').map((text: string) => ({ time: -1, text: text.trim() }));
+          setLyrics(lines);
+          setIsSynced(false);
         } else {
           setLyrics(null);
+          setIsSynced(false);
         }
-      } catch(e) {
-        console.warn('Could not fetch lyrics');
+      } catch (e) {
+        console.warn('Could not fetch lyrics', e);
+        setLyrics(null);
+        setIsSynced(false);
+      } finally {
+        setLoadingLyrics(false);
       }
     };
+    
+    // Reset lyrics and status to prevent visual flashing of other songs
+    setLyrics(null);
+    setIsSynced(false);
     fetchLyrics();
   }, [song, artist]);
 
@@ -169,17 +224,44 @@ const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: num
   const durationMs = end - start;
   const progressPercent = Math.min(100, Math.max(0, (progressMs / durationMs) * 100));
 
+  // Determine active index for synced lyrics
+  let activeIndex = -1;
   let currentLyricText = '';
-  if (lyrics) {
-     const pastLyrics = lyrics.filter(l => l.time <= progressMs + 2000); 
-     if (pastLyrics.length > 0) {
-        currentLyricText = pastLyrics[pastLyrics.length - 1].text;
-     }
+  if (lyrics && isSynced) {
+    const adjustedProgressMs = progressMs + syncOffset;
+    for (let i = 0; i < lyrics.length; i++) {
+      if (lyrics[i].time <= adjustedProgressMs) {
+        activeIndex = i;
+      } else {
+        break;
+      }
+    }
+    if (activeIndex >= 0) {
+      currentLyricText = lyrics[activeIndex].text;
+    }
   }
+
+  // Auto-scroll full lyrics container to center active lyric
+  useEffect(() => {
+    if (isSynced && activeIndex >= 0 && lyricElementsRef.current[activeIndex] && lyricsContainerRef.current) {
+      const activeElement = lyricElementsRef.current[activeIndex];
+      const container = lyricsContainerRef.current;
+      
+      const elementTop = activeElement.offsetTop;
+      const elementHeight = activeElement.offsetHeight;
+      const containerHeight = container.offsetHeight;
+      
+      container.scrollTo({
+        top: elementTop - containerHeight / 2 + elementHeight / 2,
+        behavior: 'smooth'
+      });
+    }
+  }, [activeIndex, isSynced]);
 
   return (
     <div className="w-full mt-3 flex flex-col gap-1.5 transition-all">
-      {lyrics && (
+      {/* Inline Single Line Lyric Preview */}
+      {lyrics && isSynced && !showFullLyrics && (
         <div className="flex justify-center items-center h-4 w-full overflow-hidden relative mb-1">
           <AnimatePresence mode="popLayout">
             <motion.span
@@ -195,16 +277,171 @@ const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: num
           </AnimatePresence>
         </div>
       )}
+
+      {/* Progress Bar */}
       <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
         <div 
-          className="h-full bg-green-500 rounded-full" 
+          className="h-full bg-green-500 rounded-full transition-all duration-100 ease-linear" 
           style={{ width: `${progressPercent}%` }} 
         />
       </div>
-      <div className="w-full flex justify-between text-[10px] font-bold text-zinc-400 font-mono">
+
+      {/* Timestamps and Toggle Lyrics control */}
+      <div className="w-full flex justify-between items-center text-[10px] font-bold text-zinc-400 font-mono">
         <span>{formatTime(progressMs)}</span>
+        
+        {/* Toggle Lyrics Button */}
+        {lyrics ? (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowFullLyrics(!showFullLyrics);
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 transition-all cursor-pointer select-none font-bold text-[9px] uppercase tracking-wider"
+          >
+            <AlignLeft className="w-2.5 h-2.5" />
+            {showFullLyrics ? 'Hide Lyrics' : 'Show Lyrics'}
+          </button>
+        ) : loadingLyrics ? (
+          <span className="text-[9px] text-zinc-400 uppercase tracking-wider flex items-center gap-1 animate-pulse">
+            <Sparkles className="w-2.5 h-2.5 animate-spin" />
+            Finding Lyrics...
+          </span>
+        ) : null}
+
         <span>{formatTime(durationMs)}</span>
       </div>
+
+      {/* Sync calibration sliders when showing full synced lyrics */}
+      {isSynced && showFullLyrics && (
+        <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-zinc-50 border border-black/[0.02] mt-2 animate-fadeIn">
+          <div className="flex items-center justify-between w-full text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1">
+            <span className="flex items-center gap-1"><Sliders className="w-2.5 h-2.5" /> Sync Offset</span>
+            <span className="text-green-600 font-mono font-bold">
+              {syncOffset === 0 ? 'Perfect Sync' : `${syncOffset > 0 ? '+' : ''}${(syncOffset / 1000).toFixed(1)}s`}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 w-full">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOffsetChange(Math.max(-10000, syncOffset - 500));
+              }}
+              className="flex-1 py-1 rounded-md bg-white hover:bg-zinc-100 border border-black/[0.04] text-[9.5px] font-black text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
+            >
+              -0.5s
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOffsetChange(Math.max(-10000, syncOffset - 100));
+              }}
+              className="flex-1 py-1 rounded-md bg-white hover:bg-zinc-100 border border-black/[0.04] text-[9.5px] font-black text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
+            >
+              -0.1s
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOffsetChange(0);
+              }}
+              disabled={syncOffset === 0}
+              className="px-2.5 py-1 rounded-md bg-white hover:bg-zinc-100 border border-black/[0.04] text-[9.5px] font-black text-zinc-400 hover:text-zinc-800 disabled:opacity-40 transition-all cursor-pointer"
+            >
+              Reset
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOffsetChange(Math.min(10000, syncOffset + 100));
+              }}
+              className="flex-1 py-1 rounded-md bg-white hover:bg-zinc-100 border border-black/[0.04] text-[9.5px] font-black text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
+            >
+              +0.1s
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOffsetChange(Math.min(10000, syncOffset + 500));
+              }}
+              className="flex-1 py-1 rounded-md bg-white hover:bg-zinc-100 border border-black/[0.04] text-[9.5px] font-black text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
+            >
+              +0.5s
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded scrolling lyrics container */}
+      <AnimatePresence>
+        {showFullLyrics && lyrics && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 240 }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 150 }}
+            className="w-full mt-2 rounded-xl bg-zinc-50/50 border border-black/[0.03] overflow-hidden flex flex-col animate-fadeIn"
+          >
+            <div 
+              ref={lyricsContainerRef}
+              className="flex-1 overflow-y-auto py-20 px-4 scroll-smooth scrollbar-none flex flex-col gap-1 relative"
+              style={{ contentVisibility: 'auto' }}
+            >
+              {isSynced ? (
+                lyrics.map((line, idx) => {
+                  const isActive = idx === activeIndex;
+                  const isPast = idx < activeIndex;
+                  return (
+                    <button
+                      key={idx}
+                      ref={el => lyricElementsRef.current[idx] = el}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Adjust the timing offset so this line becomes active instantly (highly engaging/intuitive way to lock sync!)
+                        const lineTargetOffset = line.time - progressMs;
+                        handleOffsetChange(lineTargetOffset);
+                      }}
+                      className={`w-full text-center py-2 px-3 rounded-lg transition-all duration-300 block outline-none select-none cursor-pointer ${
+                        isActive 
+                          ? 'text-green-500 font-extrabold text-[13.5px] scale-[1.03] drop-shadow-sm' 
+                          : isPast 
+                            ? 'text-zinc-500/80 font-bold text-[12px]' 
+                            : 'text-zinc-350 hover:text-zinc-400 font-semibold text-[12px]'
+                      }`}
+                    >
+                      {line.text || '♪'}
+                    </button>
+                  );
+                })
+              ) : (
+                // Non-synced Plain lyrics fallback
+                lyrics.map((line, idx) => (
+                  <div 
+                    key={idx}
+                    className="w-full text-center py-1.5 px-3 text-zinc-600 font-semibold text-[12px]"
+                  >
+                    {line.text}
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {/* Plain Lyrics Indicator */}
+            {!isSynced && (
+              <div className="w-full py-1 text-center bg-zinc-100 border-t border-black/[0.02] text-[8px] font-black uppercase text-zinc-400 tracking-wider">
+                Plain text lyrics (not synced)
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -452,16 +689,18 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
           </motion.div>
 
           {/* Currently Listening */}
-          <motion.a 
-            href={isListening && spotify?.track_id ? `https://open.spotify.com/track/${spotify.track_id}` : undefined}
-            target={isListening ? "_blank" : undefined}
-            rel="noopener noreferrer"
+          <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.8 }}
-            className={`w-full p-4 rounded-2xl border border-black/[0.05] bg-white flex flex-col group shadow-sm transition-all mb-12 ${isListening ? 'hover:shadow-md cursor-pointer hover:border-green-500/20' : 'cursor-default'}`}
+            className={`w-full p-4 rounded-2xl border border-black/[0.05] bg-white flex flex-col shadow-sm transition-all mb-12 ${isListening ? 'hover:shadow-md' : ''}`}
           >
-            <div className="flex items-center gap-4 w-full">
+            <a 
+              href={isListening && spotify?.track_id ? `https://open.spotify.com/track/${spotify.track_id}` : undefined}
+              target={isListening ? "_blank" : undefined}
+              rel="noopener noreferrer"
+              className={`flex items-center gap-4 w-full group ${isListening ? 'cursor-pointer' : 'cursor-default'}`}
+            >
               <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-100">
                 {isListening && spotify?.album_art_url ? (
                   <img src={spotify.album_art_url} alt="Album Art" className="w-full h-full object-cover" />
@@ -477,10 +716,10 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                     {isListening ? 'Currently Listening' : 'Not Listening'}
                   </span>
                 </div>
-                <h4 className="text-sm font-bold text-zinc-900 truncate leading-tight transition-colors group-hover:text-green-600">
+                <h4 className="text-sm font-bold text-zinc-900 truncate leading-tight transition-colors group-hover:text-green-600 text-left">
                   {isListening ? spotify?.song : 'Spotify'}
                 </h4>
-                <p className="text-[11px] font-bold text-zinc-400 truncate mt-0.5 uppercase tracking-tight">
+                <p className="text-[11px] font-bold text-zinc-400 truncate mt-0.5 uppercase tracking-tight text-left">
                   {isListening ? `by ${spotify?.artist}` : 'No music playing'}
                 </p>
               </div>
@@ -499,7 +738,7 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                   ))}
                 </div>
               )}
-            </div>
+            </a>
             {isListening && spotify?.timestamps && (
               <SpotifyProgress 
                 start={spotify.timestamps.start} 
@@ -508,7 +747,7 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                 artist={spotify.artist} 
               />
             )}
-          </motion.a>
+          </motion.div>
 
           {/* Socials & Projects Section */}
           <div className="w-full flex flex-col md:flex-row gap-8 mb-12">
@@ -537,27 +776,7 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                   </div>
                 </motion.a>
 
-                {/* Discord Server Widget */}
-                {discordId !== '924403274692575263' && (
-                  <motion.a
-                    href="https://discord.gg/cuHARsXESW"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="flex items-center gap-4 p-4 rounded-2xl border border-transparent bg-transparent hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 hover:border-black/[0.05] transition-all group hover:shadow-md"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-500 shadow-sm transition-all group-hover:-rotate-6">
-                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
-                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.196.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-bold text-zinc-900 transition-colors">Discord Server</h3>
-                    </div>
-                  </motion.a>
-                )}
+
 
                 {/* TikTok Widget */}
                 <motion.a
@@ -623,21 +842,9 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
 
 const App: React.FC = () => {
   const [mounted, setMounted] = useState(false);
-  const [pageIndicator, setPageIndicator] = useState(0);
 
   useEffect(() => {
     setMounted(true);
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') {
-        setPageIndicator(prev => Math.min(prev + 1, PROFILES.length));
-      } else if (e.key === 'ArrowLeft') {
-        setPageIndicator(prev => Math.max(prev - 1, 0));
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   if (!mounted) return null;
@@ -646,59 +853,9 @@ const App: React.FC = () => {
     <div className="min-h-screen text-zinc-600 font-sans selection:bg-blue-50 selection:text-blue-600 relative overflow-x-hidden">
       <BackgroundEffect />
       
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={pageIndicator}
-          initial={{ opacity: 0, x: 40, filter: 'blur(15px)' }}
-          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, x: -40, filter: 'blur(15px)' }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} 
-          className="relative z-10 w-full flex min-h-[90vh] items-center justify-center p-6"
-        >
-          {pageIndicator === 0 ? (
-            <div className="flex flex-col items-center justify-center w-full text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="flex flex-col gap-4 text-zinc-500 font-medium"
-              >
-                <div className="flex items-center gap-4 hover:text-zinc-900 transition-colors cursor-pointer" onClick={() => setPageIndicator(1)}>
-                  <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 text-sm font-bold">1</span>
-                  <span>Sols Socials</span>
-                </div>
-                <div className="flex items-center gap-4 hover:text-zinc-900 transition-colors cursor-pointer" onClick={() => setPageIndicator(2)}>
-                  <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 text-sm font-bold">2</span>
-                  <span>Sols Alt Discord Acc</span>
-                </div>
-                <div className="flex items-center gap-4 hover:text-zinc-900 transition-colors cursor-pointer" onClick={() => setPageIndicator(3)}>
-                  <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 text-sm font-bold">3</span>
-                  <span>Viera Socials</span>
-                </div>
-              </motion.div>
-            </div>
-          ) : (
-            <div className="w-full self-start">
-              <ProfileView discordId={PROFILES[pageIndicator - 1]} />
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Book Navigation Controls */}
-      <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
-        <div className="bg-white/80 backdrop-blur-md rounded-full border border-black/5 p-2 flex items-center gap-4 shadow-xl pointer-events-auto">
-          {Array.from({ length: PROFILES.length + 1 }).map((_, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && <div className="w-px h-4 bg-zinc-200" />}
-              <button 
-                onClick={() => setPageIndicator(i)}
-                className={`w-10 h-10 rounded-full flex flex-shrink-0 items-center justify-center transition-all outline-none ${pageIndicator === i ? 'bg-zinc-900 text-white' : 'bg-transparent text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100'}`}
-              >
-                {i}
-              </button>
-            </React.Fragment>
-          ))}
+      <div className="relative z-10 w-full flex min-h-[90vh] items-center justify-center p-6">
+        <div className="w-full self-start">
+          <ProfileView discordId="1448507472552661126" />
         </div>
       </div>
 
@@ -713,6 +870,20 @@ const App: React.FC = () => {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.15s ease-out forwards;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>
