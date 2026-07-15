@@ -495,6 +495,14 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                 ws.send(JSON.stringify({ op: 3 }));
               }
             }, d.heartbeat_interval);
+
+            // Send subscription packet immediately after Hello (op 1) as required by Lanyard protocol
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                op: 2,
+                d: { subscribe_to_id: discordId }
+              }));
+            }
           } else if (op === 0) {
             if (t === 'INIT_STATE' || t === 'PRESENCE_UPDATE') {
               // Extract data if it is wrapped in an ID keyed map
@@ -513,10 +521,15 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
       };
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({
-          op: 2,
-          d: { subscribe_to_id: discordId }
-        }));
+        // Fallback: send subscription on open if hello wasn't fast enough
+        try {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              op: 2,
+              d: { subscribe_to_id: discordId }
+            }));
+          }
+        } catch {}
       };
 
       ws.onclose = () => {
