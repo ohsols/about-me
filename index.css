@@ -6,9 +6,17 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   background-color: #ffffff;
   color: #3f3f46;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+:root.dark {
+  background-color: #09090b;
+  color: #e4e4e7;
 }
 
 body {
@@ -51,3 +59,9 @@ html {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 0.3; }
 }
+
+/* Hide default cursor completely to allow the custom tracking cursor to show */
+html, body, a, button, input, select, textarea, [role="button"], *, ::before, ::after {
+  cursor: none !important;
+}
+
