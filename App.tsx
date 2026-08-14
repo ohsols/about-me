@@ -17,36 +17,19 @@ import {
   Terminal,
   Github,
   Sun,
-  Moon
+  Moon,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Music
 } from 'lucide-react';
-
 
 const PROJECTS = [
   {
     title: 'Chillzone',
     url: 'https://chillz0ne.dev',
-    icon: <img src="https://raw.githubusercontent.com/ohsols/czonev2/refs/heads/main/public/logo.svg" className="w-5 h-5 rounded-sm object-contain" alt="chillzone" />
-  }
-];
-
-const PARTNERS = [
-  {
-    name: 'Bloxcraft Studios',
-    owner: 'THARUN9772',
-    url: 'https://bloxcraft-ubg.pages.dev',
-    avatar: 'https://bloxcraft-ubg.pages.dev/bloxcraft_transparent.png'
-  },
-  {
-    name: 'SAM',
-    owner: 'SAM',
-    url: 'https://mkplaza.github.io/',
-    avatar: 'https://cdn.jsdelivr.net/gh/MKPlaza/MKPlaza.github.io@main/Meta_Knight_Logo.webp'
-  },
-  {
-    name: 'Krypthon',
-    owner: 'Veteraning',
-    url: 'https://www.krypt-on.top/',
-    avatar: 'https://cdn.discordapp.com/icons/1474754840029823169/a_dd5f454a3a8995d76c2dc159a725a635.gif?size=1024'
+    icon: <img src="https://cdn.discordapp.com/icons/1450136714600382496/a_0a453ecc3e23806127359aea7f4aac9e.webp?size=1024&animated=true" className="w-5 h-5 rounded-sm object-contain" alt="chillzone" />
   }
 ];
 
@@ -104,7 +87,35 @@ const BackgroundEffect = () => (
   </div>
 );
 
-const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: number; song: string; artist: string; }) => {
+const LiveViewCounter: React.FC = () => {
+  const [views, setViews] = useState<number>(10245);
+
+  useEffect(() => {
+    try {
+      const visited = sessionStorage.getItem('site_visited');
+      let currentViews = parseInt(localStorage.getItem('site_total_views') || '10245', 10);
+      if (isNaN(currentViews)) currentViews = 10245;
+
+      if (!visited) {
+        sessionStorage.setItem('site_visited', 'true');
+        currentViews += 1;
+        localStorage.setItem('site_total_views', currentViews.toString());
+      }
+      setViews(currentViews);
+    } catch (e) {
+      // fallback
+    }
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-black/[0.05] dark:border-white/5 shadow-sm text-[11px] font-bold text-zinc-700 dark:text-zinc-300">
+      <span className="font-mono text-zinc-900 dark:text-zinc-100">{views.toLocaleString()}</span>
+      <span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-wider font-extrabold">views</span>
+    </div>
+  );
+};
+
+const SpotifyProgress = ({ start, end, song, artist, trackId }: { start?: number; end?: number; song: string; artist: string; trackId?: string; }) => {
   const [now, setNow] = useState(Date.now());
   const [lyrics, setLyrics] = useState<{ time: number; text: string }[] | null>(null);
   const [loadingLyrics, setLoadingLyrics] = useState(false);
@@ -291,29 +302,31 @@ const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: num
         />
       </div>
 
-      {/* Timestamps and Toggle Lyrics control */}
+      {/* Timestamps and Toggle Lyrics controls */}
       <div className="w-full flex justify-between items-center text-[10px] font-bold text-zinc-400 dark:text-zinc-550 font-mono">
         <span>{formatTime(progressMs)}</span>
         
-        {/* Toggle Lyrics Button */}
-        {lyrics ? (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowFullLyrics(!showFullLyrics);
-            }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-800/30 transition-all cursor-pointer select-none font-bold text-[9px] uppercase tracking-wider"
-          >
-            <AlignLeft className="w-2.5 h-2.5" />
-            {showFullLyrics ? 'Hide Lyrics' : 'Show Lyrics'}
-          </button>
-        ) : loadingLyrics ? (
-          <span className="text-[9px] text-zinc-400 dark:text-zinc-550 uppercase tracking-wider flex items-center gap-1 animate-pulse">
-            <Sparkles className="w-2.5 h-2.5 animate-spin" />
-            Finding Lyrics...
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {/* Toggle Lyrics Button */}
+          {lyrics ? (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowFullLyrics(!showFullLyrics);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-800/30 transition-all cursor-pointer select-none font-bold text-[9px] uppercase tracking-wider"
+            >
+              <AlignLeft className="w-2.5 h-2.5" />
+              {showFullLyrics ? 'Hide Lyrics' : 'Show Lyrics'}
+            </button>
+          ) : loadingLyrics ? (
+            <span className="text-[9px] text-zinc-400 dark:text-zinc-550 uppercase tracking-wider flex items-center gap-1 animate-pulse mr-1">
+              <Sparkles className="w-2.5 h-2.5 animate-spin" />
+              Lyrics...
+            </span>
+          ) : null}
+        </div>
 
         <span>{formatTime(durationMs)}</span>
       </div>
@@ -440,7 +453,7 @@ const SpotifyProgress = ({ start, end, song, artist }: { start: number; end: num
             
             {/* Plain Lyrics Indicator */}
             {!isSynced && (
-              <div className="w-full py-1 text-center bg-zinc-100 dark:bg-zinc-800 border-t border-black/[0.02] dark:border-white/5 text-[8px] font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-wider">
+              <div className="w-full py-1 text-center bg-zinc-100 dark:bg-zinc-850 border-t border-black/[0.02] dark:border-white/5 text-[8px] font-black uppercase text-zinc-400 dark:text-zinc-550 tracking-wider">
                 Plain text lyrics (not synced)
               </div>
             )}
@@ -614,47 +627,8 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
             transition: { staggerChildren: 0.15 }
           }
         }}
-        className="max-w-6xl mx-auto px-6 py-20 flex flex-col md:flex-row gap-12 items-start justify-center"
+        className="max-w-2xl mx-auto px-6 py-20 flex flex-col items-center"
       >
-        {/* Partners Column (Left) */}
-        <motion.div 
-          variants={{
-            hidden: { opacity: 0, x: -20 },
-            visible: { opacity: 1, x: 0 }
-          }}
-          className="w-full md:w-32 flex-shrink-0 flex flex-col items-start"
-        >
-          <div className="flex items-center gap-4 mb-6 w-full">
-            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest whitespace-nowrap">Partners</span>
-            <div className="h-px w-full bg-black/[0.05] dark:bg-white/5 md:hidden"></div>
-          </div>
-          <div className="flex flex-col gap-4 w-full">
-            {PARTNERS.map((partner, index) => (
-              <motion.a
-                key={partner.name}
-                href={partner.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 + index * 0.1, duration: 0.5 }}
-                className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-transparent bg-transparent hover:bg-white dark:hover:bg-zinc-900 hover:border-black/5 dark:hover:border-white/5 transition-all group hover:shadow-sm"
-              >
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-black/5 dark:bg-white/5 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <img 
-                    src={partner.avatar} 
-                    alt={partner.name}
-                    className="relative w-10 h-10 rounded-full border border-transparent group-hover:border-black/5 dark:group-hover:border-white/5 object-cover transition-all"
-                  />
-                </div>
-                <div className="text-center overflow-hidden w-full">
-                  <h4 className="text-[10px] font-bold text-zinc-800 dark:text-zinc-300 truncate lowercase">{partner.name}</h4>
-                </div>
-              </motion.a>
-            ))}
-          </div>
-        </motion.div>
 
         {/* Content Column (Center/Right) */}
         <div className="flex-1 max-w-2xl w-full flex flex-col items-center">
@@ -817,12 +791,13 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                 </div>
               )}
             </a>
-            {isListening && spotify?.timestamps && (
+            {isListening && (
               <SpotifyProgress 
-                start={spotify.timestamps.start} 
-                end={spotify.timestamps.end} 
-                song={spotify.song} 
-                artist={spotify.artist} 
+                start={spotify?.timestamps?.start} 
+                end={spotify?.timestamps?.end} 
+                song={spotify?.song || ''} 
+                artist={spotify?.artist || ''} 
+                trackId={spotify?.track_id}
               />
             )}
           </motion.div>
@@ -1076,6 +1051,11 @@ const App: React.FC = () => {
       <BackgroundEffect />
       <CustomCursor />
       
+      {/* Floating Live View Counter */}
+      <div className="absolute top-6 left-6 z-50">
+        <LiveViewCounter />
+      </div>
+
       {/* Floating Theme Toggle */}
       <div className="absolute top-6 right-6 z-50">
         <button

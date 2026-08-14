@@ -54,6 +54,41 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// Live View Count and Active Visitors tracking
+let totalViews = 1250;
+const activeSessions = new Map<string, number>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, lastSeen] of activeSessions.entries()) {
+    if (now - lastSeen > 15000) {
+      activeSessions.delete(id);
+    }
+  }
+}, 5000);
+
+app.post('/api/views/heartbeat', (req, res) => {
+  const { sessionId } = req.body;
+  if (sessionId) {
+    const isNew = !activeSessions.has(sessionId);
+    if (isNew) {
+      totalViews += 1;
+    }
+    activeSessions.set(sessionId, Date.now());
+  }
+  res.json({
+    totalViews,
+    activeVisitors: Math.max(1, activeSessions.size)
+  });
+});
+
+app.get('/api/views', (req, res) => {
+  res.json({
+    totalViews,
+    activeVisitors: Math.max(1, activeSessions.size)
+  });
+});
+
 // Discord verification
 app.get('/.well-known/discord', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
