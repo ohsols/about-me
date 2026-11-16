@@ -27,9 +27,9 @@ import {
 
 const PROJECTS = [
   {
-    title: 'Chillzone',
+    title: 'Swift',
     url: 'https://chillz0ne.dev',
-    icon: <img src="https://cdn.discordapp.com/icons/1450136714600382496/a_0a453ecc3e23806127359aea7f4aac9e.webp?size=1024&animated=true" className="w-5 h-5 rounded-sm object-contain" alt="chillzone" />
+    icon: <img src="https://developer.apple.com/assets/elements/icons/forums-tags/app/swiftui/swiftui-280.png" className="w-5 h-5 rounded-sm object-contain" alt="chillzone" />
   }
 ];
 
@@ -86,34 +86,6 @@ const BackgroundEffect = () => (
     />
   </div>
 );
-
-const LiveViewCounter: React.FC = () => {
-  const [views, setViews] = useState<number>(10245);
-
-  useEffect(() => {
-    try {
-      const visited = sessionStorage.getItem('site_visited');
-      let currentViews = parseInt(localStorage.getItem('site_total_views') || '10245', 10);
-      if (isNaN(currentViews)) currentViews = 10245;
-
-      if (!visited) {
-        sessionStorage.setItem('site_visited', 'true');
-        currentViews += 1;
-        localStorage.setItem('site_total_views', currentViews.toString());
-      }
-      setViews(currentViews);
-    } catch (e) {
-      // fallback
-    }
-  }, []);
-
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-black/[0.05] dark:border-white/5 shadow-sm text-[11px] font-bold text-zinc-700 dark:text-zinc-300">
-      <span className="font-mono text-zinc-900 dark:text-zinc-100">{views.toLocaleString()}</span>
-      <span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-wider font-extrabold">views</span>
-    </div>
-  );
-};
 
 const SpotifyProgress = ({ start, end, song, artist, trackId }: { start?: number; end?: number; song: string; artist: string; trackId?: string; }) => {
   const [now, setNow] = useState(Date.now());
@@ -834,7 +806,7 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
 
                 {/* Discord Widget */}
                 <motion.a
-                  href="https://discord.gg/czone"
+                  href="https://discord.gg/linewize"
                   target="_blank"
                   rel="noopener noreferrer"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -849,7 +821,7 @@ const ProfileView: React.FC<{ discordId: string }> = ({ discordId }) => {
                   </div>
                   <div className="flex-1 text-left">
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 transition-colors">Discord</h3>
-                    <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Discord.gg/czone</p>
+                    <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Discord.gg/linewize</p>
                   </div>
                 </motion.a>
 
@@ -1050,11 +1022,6 @@ const App: React.FC = () => {
     <div className="min-h-screen text-zinc-600 dark:text-zinc-400 font-sans selection:bg-blue-50 dark:selection:bg-zinc-800 selection:text-blue-600 dark:selection:text-zinc-200 relative overflow-x-hidden transition-colors duration-300">
       <BackgroundEffect />
       <CustomCursor />
-      
-      {/* Floating Live View Counter */}
-      <div className="absolute top-6 left-6 z-50">
-        <LiveViewCounter />
-      </div>
 
       {/* Floating Theme Toggle */}
       <div className="absolute top-6 right-6 z-50">
